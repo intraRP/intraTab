@@ -1,9 +1,10 @@
 fx_version 'cerulean'
+lua54 'on'
 game 'gta5'
 
-name 'intrarp-tabletv2'
+name 'intratab'
 description 'IntraRP FiveM Tablet Integration'
-author 'NoName.cs'
+author 'intraRP & NoName.cs'
 version '1.0.0'
 
 -- Add MySQL dependency
