@@ -4,7 +4,7 @@ Config = {}
 Config.Framework = 'auto' -- 'auto', 'qbcore', or 'esx'
 
 -- IntraRP Link
-Config.IntraURL = 'https://dev.intrarp.de/enotf/'
+Config.IntraURL = 'CHANGE_ME' -- URL mit Direkt-Link zum eNOTF-Protokoll einfügen (z.B. https://test.de/enotf/)
 
 -- Debug mode
 Config.Debug = false  -- Enable this to test
