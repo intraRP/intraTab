@@ -2,18 +2,10 @@ fx_version 'cerulean'
 lua54 'on'
 game 'gta5'
 
-name 'intratab'
+name 'intraTab'
 description 'IntraRP FiveM Tablet Integration'
-author 'intraRP & NoName.cs'
+author 'intraRP & NoName.cs <kontakt@intrarp.de>'
 version '1.0.0'
-
--- Add MySQL dependency
---dependency 'mysql-async'
-
--- Optional dependencies for frameworks
-dependencies {
-    --'mysql-async'
-}
 
 shared_scripts {
     'config.lua'
@@ -24,7 +16,6 @@ client_scripts {
 }
 
 server_scripts {
-    --'@mysql-async/lib/MySQL.lua',
     'server/main.lua'
 }
 
