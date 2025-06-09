@@ -29,16 +29,16 @@ Config.Animation = {
 }
 
 -- Prop settings
-Config.Prop = {
-    model = "prop_cs_tablet",
-    bone = 60309,
+Config.Prop = {                                        -- if you want to use the NidaPad Prop:                 (get the Prop here:) 
+    model = "prop_cs_tablet",                          -- model = "nidapad",
+    bone = 60309,                                      -- bone = 18905,
     offset = {
-        x = 0.03,
-        y = 0.002,
-        z = -0.0,
-        xRot = 10.0,
-        yRot = 160.0,
-        zRot = 0.0
+        x = 0.03,                                      -- x = 0.1240,
+        y = 0.002,                                     -- y = 0.0550,
+        z = -0.0,                                      -- z = 0.1550,
+        xRot = 10.0,                                   -- xRot = -76.0,
+        yRot = 160.0,                                  -- yRot = -186.0,
+        zRot = 0.0                                     -- zRot = 58.3
     }
 }
 
