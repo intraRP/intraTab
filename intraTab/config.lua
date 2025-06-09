@@ -29,7 +29,7 @@ Config.Animation = {
 }
 
 -- Prop settings
-Config.Prop = {                                        -- if you want to use the NidaPad Prop:                 (get the Prop here:) 
+Config.Prop = {                                        -- if you want to use the NidaPad Prop:                 (get the Prop here: https://intrarp.tebex.io/package/6879175) 
     model = "prop_cs_tablet",                          -- model = "nidapad",
     bone = 60309,                                      -- bone = 18905,
     offset = {
