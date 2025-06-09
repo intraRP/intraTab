@@ -21,7 +21,7 @@ Citizen.CreateThread(function()
     end
     
     if Config.Debug then
-        print("^2[sd-tablet]^7 Client framework detected: " .. (FrameworkName or "None"))
+        print("^2[intraTab]^7 Client framework detected: " .. (FrameworkName or "None"))
     end
 end)
 
@@ -202,8 +202,10 @@ function OpenIntraRPTablet()
         characterData = charData,
         IntraURL = Config.IntraURL
     })
-    
-    ShowNotification("IntraRP tablet opened for " .. charData.firstName .. " " .. charData.lastName, "success")
+
+    if Config.Debug then
+    ShowNotification("intraRP geöffnet: " .. charData.firstName .. " " .. charData.lastName, "success")
+    end
 end
 
 -- Close tablet
@@ -227,8 +229,10 @@ function CloseIntraRPTablet()
     SendNUIMessage({
         type = "closeTablet"
     })
-    
-    ShowNotification("tablet closed", "primary")
+
+    if Config.Debug then
+    ShowNotification("Tablet geschlossen", "primary")
+    end
 end
 
 -- NUI Callbacks
