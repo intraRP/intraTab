@@ -204,7 +204,7 @@ function OpenIntraRPTablet()
     })
 
     if Config.Debug then
-    ShowNotification("intraRP geöffnet: " .. charData.firstName .. " " .. charData.lastName, "success")
+    --ShowNotification("intraRP geöffnet: " .. charData.firstName .. " " .. charData.lastName, "success")
     end
 end
 
@@ -231,7 +231,7 @@ function CloseIntraRPTablet()
     })
 
     if Config.Debug then
-    ShowNotification("Tablet geschlossen", "primary")
+    --ShowNotification("Tablet geschlossen", "primary")
     end
 end
 
@@ -356,7 +356,7 @@ AddEventHandler('onResourceStart', function(resourceName)
             print("Framework:", FrameworkName or "None")
             print("Configured key:", Config.OpenKey, "Control ID:", GetKeyControl())
         end
-        ShowNotification("tablet system loaded! Use /intrarp or " .. Config.OpenKey, "success")
+        --ShowNotification("tablet system loaded! Use /intrarp or " .. Config.OpenKey, "success")
     end
 end)
 
