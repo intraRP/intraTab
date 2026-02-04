@@ -83,6 +83,25 @@ function goHome() {
   if (DEBUG) console.log("[Master] goHome() called for:", currentTablet);
 }
 
+function goBack() {
+  if (DEBUG) console.log("[Master] goBack() called for:", currentTablet);
+
+  // Get the correct iframe based on current tablet
+  const iframe =
+    currentTablet === "enotf"
+      ? document.getElementById("tabletScreen")
+      : document.getElementById("firetabScreen");
+
+  if (iframe && iframe.contentWindow) {
+    try {
+      iframe.contentWindow.history.back();
+      if (DEBUG) console.log("[Master] Navigated back in iframe history");
+    } catch (e) {
+      if (DEBUG) console.error("[Master] Error navigating back:", e);
+    }
+  }
+}
+
 // ==========================================
 // NUI MESSAGE LISTENER
 // ==========================================
@@ -139,13 +158,13 @@ window.addEventListener("message", function (event) {
     if (!reqType || !curType || reqType === curType) {
       if (DEBUG)
         console.log(
-          `[Master] closeTablet message for ${reqType || "any"}, closing.`
+          `[Master] closeTablet message for ${reqType || "any"}, closing.`,
         );
       closeTablet();
     } else {
       if (DEBUG)
         console.log(
-          `[Master] closeTablet message for ${reqType}, ignored; current=${curType}`
+          `[Master] closeTablet message for ${reqType}, ignored; current=${curType}`,
         );
     }
   }
