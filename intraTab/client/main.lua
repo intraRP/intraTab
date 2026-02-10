@@ -535,6 +535,28 @@ elseif FrameworkName == 'esx' then
     end)
 end
 
+-- ========================================
+-- STATUS-POLL: Statusänderungen von PHP (FireTab) -> emergencydispatch
+-- ========================================
+RegisterNetEvent('intraTab:applyStatus')
+AddEventHandler('intraTab:applyStatus', function(status)
+    if not status or status == "" then
+        return
+    end
+
+    local success, result = pcall(function()
+        return exports['emergencydispatch']:emf_status(status)
+    end)
+
+    if Config.Debug then
+        if success and result then
+            print("^2[Status-Poll]^7 Status '" .. status .. "' erfolgreich gesetzt")
+        else
+            print("^1[Status-Poll]^7 Fehler beim Setzen von Status '" .. status .. "'")
+        end
+    end
+end)
+
 -- Resource start
 AddEventHandler('onResourceStart', function(resourceName)
     if GetCurrentResourceName() == resourceName then

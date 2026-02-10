@@ -87,28 +87,77 @@ local function ExecuteQuery(query, parameters)
     return Citizen.Await(promise)
 end
 
+-- Funktion zum Einpflegen von Lagemeldungen aus der PHP-Response in emergencydispatch
+local function ProcessSituationReports(responseData)
+    if not responseData or not responseData.situation_reports then
+        return
+    end
+
+    local totalSent = 0
+    local totalFailed = 0
+
+    for einsatznummer, reports in pairs(responseData.situation_reports) do
+        if type(reports) == 'table' then
+            for _, report in ipairs(reports) do
+                local text = report.text or ""
+                local sender = report.sender or "intraRP"
+
+                if text ~= "" then
+                    local success, result = pcall(function()
+                        return exports['emergencydispatch']:emf_lagemeldung_send(tonumber(einsatznummer) or einsatznummer, text, sender)
+                    end)
+
+                    if success and result then
+                        totalSent = totalSent + 1
+                        if Config.Debug then
+                            print("^2[EMD-Sync]^7 Lagemeldung für Einsatz #" .. einsatznummer .. " eingepflegt: " .. text)
+                        end
+                    else
+                        totalFailed = totalFailed + 1
+                        if Config.Debug then
+                            print("^1[EMD-Sync]^7 Fehler beim Einpflegen der Lagemeldung für Einsatz #" .. einsatznummer)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if Config.Debug and (totalSent > 0 or totalFailed > 0) then
+        print("^2[EMD-Sync]^7 Lagemeldungen aus Response verarbeitet: " .. totalSent .. " erfolgreich, " .. totalFailed .. " fehlgeschlagen")
+    end
+end
+
 local function SendDataToPHP(data)
     if not Config.EMDSync or not Config.EMDSync.Enabled then
         return
     end
-   
+
     if not PHPEndpoint then
         if Config.Debug then
             print("^1[EMD-Sync]^7 Fehler: PHPEndpoint konnte nicht generiert werden!")
         end
         return
     end
-    
+
     if Config.Debug then
         print("^2[EMD-Sync]^7 Daten an PHP-Endpunkt senden...")
         print("^2[EMD-Sync]^7 Verwendung des API-Schlüssels: " .. Config.EMDSync.APIKey)
         print("^2[EMD-Sync]^7 Endpunkt: " .. PHPEndpoint)
     end
-    
+
     PerformHttpRequest(PHPEndpoint, function(statusCode, response, headers)
         if statusCode == 200 then
             if Config.Debug then
                 print("^2[EMD-Sync]^7 Daten erfolgreich gesendet! Antwort: " .. response)
+            end
+
+            -- Verarbeite Lagemeldungen aus der Response (FireTab -> emergencydispatch)
+            if Config.EMDSync.LagemeldungSync and Config.EMDSync.LagemeldungSync.Enabled then
+                local responseData = json.decode(response)
+                if responseData then
+                    ProcessSituationReports(responseData)
+                end
             end
         else
             if Config.Debug then
@@ -182,6 +231,58 @@ local function GetDispatchListDetails(dispatchNumbers)
     return result or {}
 end
 
+-- Funktion zum Abrufen der Lagemeldungen für eine Einsatznummer
+local function GetLagemeldungen(einsatznummer)
+    if not einsatznummer then
+        return nil
+    end
+
+    local success, lagemeldungen = pcall(function()
+        return exports['emergencydispatch']:emf_lagemeldung_get(einsatznummer)
+    end)
+
+    if not success then
+        if Config.Debug then
+            print("^1[EMD-Sync]^7 Fehler beim Abrufen der Lagemeldungen für Einsatz " .. tostring(einsatznummer))
+        end
+        return nil
+    end
+
+    if Config.Debug and lagemeldungen then
+        local count = 0
+        if type(lagemeldungen) == 'table' then
+            count = #lagemeldungen
+        end
+        print("^2[EMD-Sync]^7 " .. count .. " Lagemeldung(en) für Einsatz " .. tostring(einsatznummer) .. " abgerufen")
+    end
+
+    return lagemeldungen
+end
+
+-- Funktion zum Abrufen aller Lagemeldungen für mehrere Einsatznummern
+local function GetAllLagemeldungen(dispatchNumbers)
+    if not dispatchNumbers or #dispatchNumbers == 0 then
+        return {}
+    end
+
+    local lagemeldungMap = {}
+
+    for _, einsatznummer in ipairs(dispatchNumbers) do
+        local lagemeldungen = GetLagemeldungen(einsatznummer)
+        if lagemeldungen and type(lagemeldungen) == 'table' then
+            lagemeldungMap[tostring(einsatznummer)] = lagemeldungen
+        end
+    end
+
+    if Config.Debug then
+        local count = 0
+        for _ in pairs(lagemeldungMap) do count = count + 1 end
+        print("^2[EMD-Sync]^7 Lagemeldungen für " .. count .. " Einsätze abgerufen")
+    end
+
+    return lagemeldungMap
+end
+
 -- Haupt-Sync-Funktion
 function SyncDispatchData()
     if not Config.EMDSync or not Config.EMDSync.Enabled then
@@ -243,21 +344,36 @@ function SyncDispatchData()
             end
         end
         
-        -- Füge Dispatch-Details (inkl. Patientendaten) zu jedem Fahrzeug hinzu
+        -- Hole Lagemeldungen pro Einsatz, wenn aktiviert
+        local lagemeldungMap = {}
+        if Config.EMDSync.LagemeldungSync and Config.EMDSync.LagemeldungSync.Enabled and Config.EMDSync.LagemeldungSync.IncludeInDispatchSync then
+            lagemeldungMap = GetAllLagemeldungen(dispatchNumbers)
+        end
+
+        -- Füge Dispatch-Details (inkl. Patientendaten und Lagemeldungen) zu jedem Fahrzeug hinzu
         for _, vehicle in ipairs(dispatchData) do
             if vehicle.dispatch then
                 local dispatchNumber = tostring(vehicle.dispatch)
-                
+
                 -- Füge Dispatch-Daten hinzu
                 if dispatchMap[dispatchNumber] then
                     vehicle.dispatch_data = dispatchMap[dispatchNumber]
-                    
+
+                    -- Füge Lagemeldungen hinzu
+                    if lagemeldungMap[dispatchNumber] then
+                        vehicle.dispatch_data.lagemeldungen = lagemeldungMap[dispatchNumber]
+                    end
+
                     if Config.Debug then
                         local patientInfo = ""
                         if dispatchMap[dispatchNumber].patienten then
                             patientInfo = " (inkl. " .. #dispatchMap[dispatchNumber].patienten .. " Patient(en))"
                         end
-                        print("^2[EMD-Sync]^7 Dispatch-Daten für Einsatz " .. vehicle.dispatch .. " hinzugefügt" .. patientInfo)
+                        local lageInfo = ""
+                        if lagemeldungMap[dispatchNumber] then
+                            lageInfo = " (inkl. " .. #lagemeldungMap[dispatchNumber] .. " Lagemeldung(en))"
+                        end
+                        print("^2[EMD-Sync]^7 Dispatch-Daten für Einsatz " .. vehicle.dispatch .. " hinzugefügt" .. patientInfo .. lageInfo)
                     end
                 end
             end
@@ -854,46 +970,227 @@ function SyncStatusMessages()
     if not Config.EMDSync or not Config.EMDSync.StatusSync or not Config.EMDSync.StatusSync.Enabled then
         return
     end
-    
+
     -- Hole neue Statusmeldungen
     local statuses = GetNewStatusMessages()
-    
+
     if not statuses or #statuses == 0 then
         return
     end
-    
+
     -- Sende Statusmeldungen an PHP
     SendStatusesToPHP(statuses)
 end
 
--- Automatischer Status-Sync-Timer
+-- ========================================
+-- STATUS-POLL: Statusänderungen von PHP (FireTab) -> emergencydispatch (clientseitig)
+-- ========================================
+
+local StatusPollEndpoint = BuildURL("api/emd-status-poll.php")
+
+-- Funktion zum Zuordnen von Fahrzeugnamen zu Spieler-Source via mannedvehicles
+local function FindPlayerSourceByVehicleName(vehicleName)
+    local success, mannedVehicles = pcall(function()
+        return exports['emergencydispatch']:mannedvehicles()
+    end)
+
+    if not success or not mannedVehicles then
+        return nil
+    end
+
+    for _, vehicle in ipairs(mannedVehicles) do
+        if vehicle.value == vehicleName then
+            return vehicle.source
+        end
+    end
+
+    return nil
+end
+
+-- Funktion zum Verarbeiten der Status-Änderungen aus der PHP-Response
+local function ProcessStatusChanges(statusChanges)
+    if not statusChanges or #statusChanges == 0 then
+        return
+    end
+
+    local applied = 0
+    local notFound = 0
+
+    for _, change in ipairs(statusChanges) do
+        local vehicleName = change.vehicle_name
+        local status = change.status
+
+        if vehicleName and status then
+            local playerSource = FindPlayerSourceByVehicleName(vehicleName)
+
+            if playerSource then
+                TriggerClientEvent('intraTab:applyStatus', playerSource, tostring(status))
+                applied = applied + 1
+
+                if Config.Debug then
+                    print("^2[Status-Poll]^7 Status '" .. status .. "' an Spieler " .. playerSource .. " gesendet (Fahrzeug: " .. vehicleName .. ")")
+                end
+            else
+                notFound = notFound + 1
+                if Config.Debug then
+                    print("^3[Status-Poll]^7 Kein Spieler für Fahrzeug '" .. vehicleName .. "' gefunden (Status: " .. status .. ")")
+                end
+            end
+        end
+    end
+
+    if Config.Debug and (applied > 0 or notFound > 0) then
+        print("^2[Status-Poll]^7 Statusänderungen verarbeitet: " .. applied .. " angewendet, " .. notFound .. " ohne Spieler")
+    end
+end
+
+-- Funktion zum Polling der Statusänderungen von PHP
+function PollFireTabStatusChanges()
+    if not Config.EMDSync or not Config.EMDSync.Enabled or not Config.EMDSync.StatusSync or not Config.EMDSync.StatusSync.Enabled then
+        return
+    end
+
+    if not StatusPollEndpoint then
+        return
+    end
+
+    if Config.Debug then
+        print("^2[Status-Poll]^7 Polling Statusänderungen von PHP...")
+    end
+
+    PerformHttpRequest(StatusPollEndpoint, function(statusCode, response, headers)
+        if statusCode == 200 then
+            local responseData = json.decode(response)
+
+            if responseData and responseData.success and responseData.status_changes and #responseData.status_changes > 0 then
+                if Config.Debug then
+                    print("^2[Status-Poll]^7 " .. #responseData.status_changes .. " Statusänderung(en) von PHP empfangen")
+                end
+                ProcessStatusChanges(responseData.status_changes)
+            else
+                if Config.Debug then
+                    print("^3[Status-Poll]^7 Keine neuen Statusänderungen von PHP")
+                end
+            end
+        else
+            if Config.Debug then
+                print("^1[Status-Poll]^7 Fehler beim Polling. Statuscode: " .. statusCode)
+                if response then
+                    print("^1[Status-Poll]^7 Antwort: " .. response)
+                end
+            end
+        end
+    end, 'POST', json.encode({
+        intraRP_API_Key = Config.EMDSync.APIKey,
+        type = 'poll_status_changes'
+    }), {
+        ['Content-Type'] = 'application/json',
+        ['User-Agent'] = 'FiveM-StatusPoll/1.0'
+    })
+end
+
+-- Automatischer Status-Sync-Timer (inkl. Status-Poll von PHP)
 CreateThread(function()
     Wait(2000) -- Warte bis Config geladen ist
-    
+
     if not Config or not Config.EMDSync or not Config.EMDSync.StatusSync or not Config.EMDSync.StatusSync.Enabled then
         if Config.Debug then
             print("^3[Status-Sync]^7 Echtzeit-Status-Sync ist in der Konfiguration deaktiviert")
         end
         return
     end
-    
+
     LoadLastStatusId()
-    
+
     if Config.Debug then
         print("^2[Status-Sync]^7 Echtzeit-Status-Synchronisierung gestartet")
         print("^2[Status-Sync]^7 Überwachte Status: " .. table.concat(Config.EMDSync.StatusSync.SyncStatuses, ", "))
         print("^2[Status-Sync]^7 Polling-Intervall: " .. (Config.EMDSync.StatusSync.PollInterval / 1000) .. "s")
         print("^2[Status-Sync]^7 PHP-Endpunkt: " .. PHPEndpoint)
+        print("^2[Status-Poll]^7 Status-Poll-Endpunkt: " .. StatusPollEndpoint)
     end
-    
+
     while true do
         Wait(Config.EMDSync.StatusSync.PollInterval)
-        
+
         if Config.Debug then
             print("^2[Status-Sync]^7 Prüfe auf neue Statusmeldungen...")
         end
-        
+
         SyncStatusMessages()
+        PollFireTabStatusChanges()
+    end
+end)
+
+-- ========================================
+-- FALLBACK: Statusmeldungen ohne Einsatzzuordnung (nur Status-Tracking, kein Einsatzlog)
+-- ========================================
+
+-- Funktion zum Senden von Fallback-Statusmeldungen an PHP
+local function SendFallbackStatusToPHP(vehicleName, status, time)
+    if not PHPEndpoint then
+        return
+    end
+
+    if Config.Debug then
+        print("^2[Status-Fallback]^7 Sende Status '" .. tostring(status) .. "' für Fahrzeug '" .. tostring(vehicleName) .. "' (ohne Einsatz)")
+    end
+
+    PerformHttpRequest(PHPEndpoint, function(statusCode, response, headers)
+        if statusCode == 200 then
+            if Config.Debug then
+                print("^2[Status-Fallback]^7 Fallback-Status erfolgreich gesendet!")
+            end
+        else
+            if Config.Debug then
+                print("^1[Status-Fallback]^7 Fehler beim Senden. Statuscode: " .. statusCode)
+            end
+        end
+    end, 'POST', json.encode({
+        intraRP_API_Key = Config.EMDSync.APIKey,
+        timestamp = os.time(),
+        type = 'status_no_dispatch',  -- Markierung: NUR Status-Tracking, KEIN Einsatzlog
+        vehicle_name = vehicleName,
+        status = tostring(status),
+        time = time,
+        date = os.date('%d.%m.%Y')
+    }), {
+        ['Content-Type'] = 'application/json',
+        ['User-Agent'] = 'FiveM-StatusFallback/1.0'
+    })
+end
+
+-- Event-Handler: Fängt ALLE Statusänderungen ab, sendet nur die ohne Einsatz
+AddEventHandler('emergencydispatch:status:emf', function(fzg, status, time)
+    if not Config.EMDSync or not Config.EMDSync.StatusSync or not Config.EMDSync.StatusSync.Enabled then
+        return
+    end
+
+    -- Prüfe ob das Fahrzeug einem Einsatz zugeordnet ist
+    local hasDispatch = false
+    local success, mannedVehicles = pcall(function()
+        return exports['emergencydispatch']:mannedvehicles()
+    end)
+
+    if success and mannedVehicles then
+        for _, vehicle in ipairs(mannedVehicles) do
+            if vehicle.value == fzg and vehicle.dispatch and vehicle.dispatch ~= 0 then
+                hasDispatch = true
+                break
+            end
+        end
+    end
+
+    -- Nur senden wenn KEIN Einsatz zugeordnet (Fallback)
+    if not hasDispatch then
+        if Config.Debug then
+            print("^2[Status-Fallback]^7 Fahrzeug '" .. tostring(fzg) .. "' hat keinen Einsatz - sende Fallback-Status '" .. tostring(status) .. "'")
+        end
+        SendFallbackStatusToPHP(fzg, status, time)
+    else
+        if Config.Debug then
+            print("^3[Status-Fallback]^7 Fahrzeug '" .. tostring(fzg) .. "' hat Einsatz - überspringe Fallback (normaler StatusSync greift)")
+        end
     end
 end)
 
@@ -911,3 +1208,152 @@ end, true)
 exports('syncStatusMessages', SyncStatusMessages)
 
 print("^2[Status-Sync]^7 Echtzeit-Status-Sync erfolgreich geladen!")
+
+--[[ =========================================
+     LAGEMELDUNG-SYNCHRONISIERUNG
+     ========================================= ]]
+
+-- Funktion zum Senden der Lagemeldungen an PHP
+local function SendLagemeldungenToPHP(lagemeldungData)
+    if not Config.EMDSync or not Config.EMDSync.Enabled then
+        return
+    end
+
+    if not lagemeldungData or not next(lagemeldungData) then
+        return
+    end
+
+    if Config.Debug then
+        local count = 0
+        for _ in pairs(lagemeldungData) do count = count + 1 end
+        print("^2[Lagemeldung-Sync]^7 Sende Lagemeldungen für " .. count .. " Einsätze an PHP-Endpunkt...")
+        print("^2[Lagemeldung-Sync]^7 Endpunkt: " .. PHPEndpoint)
+    end
+
+    local payload = {
+        intraRP_API_Key = Config.EMDSync.APIKey,
+        timestamp = os.time(),
+        type = 'lagemeldungen',  -- Kennzeichnung für PHP
+        einsaetze = {}
+    }
+
+    for einsatznummer, lagemeldungen in pairs(lagemeldungData) do
+        table.insert(payload.einsaetze, {
+            einsatznummer = einsatznummer,
+            lagemeldungen = lagemeldungen
+        })
+    end
+
+    PerformHttpRequest(PHPEndpoint, function(statusCode, response, headers)
+        if statusCode == 200 then
+            if Config.Debug then
+                print("^2[Lagemeldung-Sync]^7 Lagemeldungen erfolgreich gesendet! Antwort: " .. response)
+            end
+        else
+            if Config.Debug then
+                print("^1[Lagemeldung-Sync]^7 Fehler beim Senden der Lagemeldungen. Statuscode: " .. statusCode)
+                if statusCode == 401 then
+                    print("^1[Lagemeldung-Sync]^7 API-Key ist ungültig! Bitte Config.EMDSync.APIKey in config.lua korrekt setzen.")
+                end
+                if response then
+                    print("^1[Lagemeldung-Sync]^7 Antwort: " .. response)
+                end
+            end
+        end
+    end, 'POST', json.encode(payload), {
+        ['Content-Type'] = 'application/json',
+        ['User-Agent'] = 'FiveM-LagemeldungSync/1.0'
+    })
+end
+
+-- Haupt-Funktion für eigenständige Lagemeldung-Synchronisierung
+function SyncLagemeldungen()
+    if not Config.EMDSync or not Config.EMDSync.LagemeldungSync or not Config.EMDSync.LagemeldungSync.Enabled then
+        return
+    end
+
+    -- Hole aktive Einsatznummern über die besetzten Fahrzeuge
+    local mannedVehicles = GetDispatchData()
+
+    if not mannedVehicles or #mannedVehicles == 0 then
+        if Config.Debug then
+            print("^3[Lagemeldung-Sync]^7 Keine aktiven Einsätze für Lagemeldungen")
+        end
+        return
+    end
+
+    -- Sammle einzigartige Einsatznummern
+    local dispatchNumbers = {}
+    local dispatchNumberSet = {}
+
+    for _, vehicle in ipairs(mannedVehicles) do
+        if vehicle.dispatch and not dispatchNumberSet[vehicle.dispatch] then
+            table.insert(dispatchNumbers, vehicle.dispatch)
+            dispatchNumberSet[vehicle.dispatch] = true
+        end
+    end
+
+    if #dispatchNumbers == 0 then
+        if Config.Debug then
+            print("^3[Lagemeldung-Sync]^7 Keine Einsatznummern gefunden")
+        end
+        return
+    end
+
+    -- Hole Lagemeldungen für alle aktiven Einsätze
+    local lagemeldungMap = GetAllLagemeldungen(dispatchNumbers)
+
+    if not next(lagemeldungMap) then
+        if Config.Debug then
+            print("^3[Lagemeldung-Sync]^7 Keine Lagemeldungen vorhanden")
+        end
+        return
+    end
+
+    -- Sende Lagemeldungen an PHP
+    SendLagemeldungenToPHP(lagemeldungMap)
+end
+
+-- Automatischer Lagemeldung-Sync-Timer
+CreateThread(function()
+    Wait(3000) -- Warte bis Config geladen ist
+
+    if not Config or not Config.EMDSync or not Config.EMDSync.LagemeldungSync or not Config.EMDSync.LagemeldungSync.Enabled then
+        if Config.Debug then
+            print("^3[Lagemeldung-Sync]^7 Lagemeldung-Sync ist in der Konfiguration deaktiviert")
+        end
+        return
+    end
+
+    if Config.Debug then
+        print("^2[Lagemeldung-Sync]^7 Automatische Lagemeldung-Synchronisierung gestartet")
+        print("^2[Lagemeldung-Sync]^7 Sync-Intervall: " .. (Config.EMDSync.LagemeldungSync.SyncInterval / 1000) .. "s")
+        print("^2[Lagemeldung-Sync]^7 In Dispatch-Sync eingeschlossen: " .. tostring(Config.EMDSync.LagemeldungSync.IncludeInDispatchSync))
+        print("^2[Lagemeldung-Sync]^7 PHP-Endpunkt: " .. PHPEndpoint)
+    end
+
+    while true do
+        Wait(Config.EMDSync.LagemeldungSync.SyncInterval)
+
+        if Config.Debug then
+            print("^2[Lagemeldung-Sync]^7 Timer ausgelöst - Lagemeldungen werden synchronisiert...")
+        end
+
+        SyncLagemeldungen()
+    end
+end)
+
+-- Command zum manuellen Triggern des Lagemeldung-Syncs
+RegisterCommand('lagemeldungsync', function(source, args)
+    if source == 0 or IsPlayerAceAllowed(source, 'command.lagemeldungsync') then
+        if Config.Debug then
+            print("^2[Lagemeldung-Sync]^7 Manuelle Lagemeldung-Synchronisierung ausgeführt")
+        end
+        SyncLagemeldungen()
+    end
+end, true)
+
+-- Export für andere Scripts
+exports('syncLagemeldungen', SyncLagemeldungen)
+
+print("^2[Lagemeldung-Sync]^7 Lagemeldung-Sync erfolgreich geladen!")

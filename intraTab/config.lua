@@ -96,6 +96,13 @@ Config.EMDSync = {
         Enabled = false,  -- Auf true setzen, um die Echtzeit-Status-Synchronisierung zu aktivieren
         SyncStatuses = {'C', '1', '2', '3', '4', '7', '8'},  -- Zu synchronisierende Status (C = Alarmierung, 1-8 = weitere Status)
         PollInterval = 5000  -- Polling-Intervall in Millisekunden (Standard: 5000 = 5 Sekunden)
+    },
+
+    -- Lagemeldung-Synchronisierung (Lagemeldungen pro Einsatz)
+    LagemeldungSync = {
+        Enabled = false,  -- Auf true setzen, um die Lagemeldung-Synchronisierung zu aktivieren
+        IncludeInDispatchSync = true,  -- Lagemeldungen in den Fahrzeug-Dispatch-Sync einschließen
+        SyncInterval = 30000  -- Eigenständiges Sync-Intervall in Millisekunden (Standard: 30000 = 30 Sekunden)
     }
 }
 
