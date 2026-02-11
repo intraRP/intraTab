@@ -5,7 +5,7 @@ game 'gta5'
 name 'intraTab'
 description 'intraTab + NOTFpad + FireTab'
 author 'EmergencyForge.de'
-version '2.0.0'
+version '2.3.0'
 
 shared_scripts {
     'config.lua'
