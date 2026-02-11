@@ -105,7 +105,7 @@ function GetReleasedENOTFProtocols()
     end
     
     -- Prüfe API-Key
-    if not Config.ENOTFBilling.APIKey or Config.ENOTFBilling.APIKey == "" or Config.ENOTFBilling.APIKey == "CHANGE_ME" then
+    if not Config.APIKey or Config.APIKey == "" or Config.APIKey == "CHANGE_ME" then
         print("^1[eNOTF-Billing]^7 ❌ FEHLER: API-Key ist nicht gesetzt!")
         print("^3[eNOTF-Billing]^7 Bitte setze 'Config.APIKey' in der config.lua")
         return {}
@@ -114,7 +114,7 @@ function GetReleasedENOTFProtocols()
     if Config.Debug then
         print("^2[eNOTF-Billing]^7 Abfrage der freigegebenen eNOTF-Protokolle...")
         print("^2[eNOTF-Billing]^7 API-Endpunkt: " .. BillingEndpoint)
-        print("^2[eNOTF-Billing]^7 API-Key (erste 8 Zeichen): " .. string.sub(Config.ENOTFBilling.APIKey, 1, 8) .. "...")
+        print("^2[eNOTF-Billing]^7 API-Key (erste 8 Zeichen): " .. string.sub(Config.APIKey, 1, 8) .. "...")
     end
     
     local promise = promise.new()
@@ -153,7 +153,7 @@ function GetReleasedENOTFProtocols()
             promise:resolve({})
         end
     end, 'POST', json.encode({
-        intraRP_API_Key = Config.ENOTFBilling.APIKey,
+        intraRP_API_Key = Config.APIKey,
         timestamp = os.time()
     }), {
         ['Content-Type'] = 'application/json',

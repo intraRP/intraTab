@@ -26,7 +26,6 @@ Config.eNOTF = {
     Command = 'enotf',
     OpenKey = 'F9',  -- Standardtaste (oder nil = keine Vorgabe, Spieler kann selbst zuweisen)
     AllowedJobs = {
-        'police',
         'ambulance',
         'admin'
     },
@@ -55,7 +54,7 @@ Config.FireTab = {
     Command = 'firetab',
     OpenKey = nil,  -- Standardtaste (oder nil = keine Vorgabe, Spieler kann selbst zuweisen)
     AllowedJobs = {
-        'firedepartment',
+        'fire',
         'admin'
     },
     RequireItem = false,
@@ -80,29 +79,26 @@ Config.FireTab = {
 -- ========================================
 Config.EMDSync = {
     Enabled = false,  -- Auf true setzen, um die EMD-Synchronisierung zu aktivieren
-    SyncInterval = 30000,  -- Synchronisations-Intervall (Standard: 30000 = 30 Sekunden)
-    APIKey = Config.APIKey,  -- Nutzt den zentralen API-Key
-    
-    -- Dispatch Log Sync Einstellungen (für Einsatz-Statusmeldungen)
-    --- Aktuell KEINE FUNKTION in intraRP - einfach auf false lassen!
-    DispatchLogSync = {
-        Enabled = false,  -- Auf true setzen, um die Dispatch-Log-Synchronisierung zu aktivieren
-        CheckInterval = 60000,  -- Intervall zur Prüfung auf abgeschlossene Einsätze (Standard: 60000 = 60 Sekunden)
-        SourceTable = 'emd_dispatchlog'  -- Tabelle mit den Dispatch-Logs (nutzt die vorhandene Framework-Datenbankverbindung)
+    HeartbeatInterval = 5000,  -- Basis-Takt in Millisekunden (Standard: 5000 = 5 Sekunden)
+
+    -- Dispatch-Daten Synchronisierung (Fahrzeuge, Einsatzdaten, Patienten)
+    DispatchSync = {
+        Enabled = true,  -- Auf true setzen, um Fahrzeug-/Einsatzdaten zu synchronisieren
+        TickMultiplier = 6  -- Alle 6 Ticks = alle 30s (bei HeartbeatInterval = 5000)
     },
-    
-    -- Echtzeit Status-Synchronisierung
+
+    -- Echtzeit Status-Synchronisierung (bidirektional: FiveM <-> Web)
     StatusSync = {
-        Enabled = false,  -- Auf true setzen, um die Echtzeit-Status-Synchronisierung zu aktivieren
-        SyncStatuses = {'C', '1', '2', '3', '4', '7', '8'},  -- Zu synchronisierende Status (C = Alarmierung, 1-8 = weitere Status)
-        PollInterval = 5000  -- Polling-Intervall in Millisekunden (Standard: 5000 = 5 Sekunden)
+        Enabled = true,  -- Auf true setzen, um die Echtzeit-Status-Synchronisierung zu aktivieren
+        SyncStatuses = {'C', '1', '2', '3', '4', '7', '8'},  -- Zu synchronisierende Status
+        SourceTable = 'emd_dispatchlog',  -- Tabelle mit den Statusmeldungen
+        TickMultiplier = 1  -- Jeden Tick = alle 5s (bei HeartbeatInterval = 5000)
     },
 
     -- Lagemeldung-Synchronisierung (Lagemeldungen pro Einsatz)
     LagemeldungSync = {
-        Enabled = false,  -- Auf true setzen, um die Lagemeldung-Synchronisierung zu aktivieren
-        IncludeInDispatchSync = true,  -- Lagemeldungen in den Fahrzeug-Dispatch-Sync einschließen
-        SyncInterval = 30000  -- Eigenständiges Sync-Intervall in Millisekunden (Standard: 30000 = 30 Sekunden)
+        Enabled = true,  -- Auf true setzen, um die Lagemeldung-Synchronisierung zu aktivieren
+        TickMultiplier = 6  -- Alle 6 Ticks = alle 30s
     }
 }
 
@@ -111,8 +107,7 @@ Config.EMDSync = {
 -- ========================================
 Config.ENOTFBilling = {
     Enabled = false,  -- Auf true setzen, um das eNOTF-Abrechnungssystem zu aktivieren
-    APIKey = Config.APIKey,  -- Nutzt den zentralen API-Key
-    
+
     -- Automatische Synchronisierung
     AutoSync = false,  -- Automatisch im Hintergrund synchronisieren
     SyncInterval = 900000,  -- Synchronisations-Intervall in Millisekunden (Standard: 900000 = 15 Minuten)
