@@ -37,12 +37,3 @@ files {
 
 data_file 'DLC_ITYP_REQUEST' 'stream/notfpad.ytyp'
 data_file 'DLC_ITYP_REQUEST' 'stream/firetab.ytyp'
-
-escrow_ignore {
-    'config.lua',
-    'client/*.lua',
-    'server/billing_custom.lua',
-    'server/enotf_billing.lua',
-    'server/main.lua',
-    'html/**/*'
-}
