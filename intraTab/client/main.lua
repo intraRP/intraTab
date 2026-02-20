@@ -247,10 +247,19 @@ end
 
 
 function PlayerHasItem(itemName)
+    -- ox_inventory Support (funktioniert mit QBCore und ESX)
+    if GetResourceState('ox_inventory') == 'started' then
+        local count = exports.ox_inventory:Search('count', itemName)
+        if Config.Debug then
+            print("^2[intraTab]^7 ox_inventory item check: " .. itemName .. " = " .. tostring(count))
+        end
+        return count and count > 0
+    end
+
     if FrameworkName == 'qbcore' then
         local PlayerData = Framework.Functions.GetPlayerData()
         if not PlayerData or not PlayerData.items then return false end
-        
+
         for _, item in pairs(PlayerData.items) do
             if item and item.name == itemName and (item.amount or 0) > 0 then
                 return true
@@ -261,7 +270,7 @@ function PlayerHasItem(itemName)
     elseif FrameworkName == 'esx' then
         local inventory = Framework.GetPlayerData().inventory
         if not inventory then return false end
-        
+
         for _, item in pairs(inventory) do
             if item and item.name == itemName and (item.count or 0) > 0 then
                 return true
@@ -317,7 +326,7 @@ function OpenTablet(tabletType)
 
         if not found then
             if Config.Debug then
-                print("Player Job not Allowed for " .. tabletType)
+                print("^1[intraTab]^7 Player job '" .. tostring(charData.job) .. "' not in AllowedJobs for " .. tabletType .. ": " .. json.encode(config.AllowedJobs))
             end
             ShowNotification("Du darfst dieses Tablet nicht nutzen!", "error")
             return
