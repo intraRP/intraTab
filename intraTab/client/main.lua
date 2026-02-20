@@ -252,7 +252,7 @@ function PlayerHasItem(itemName)
         if not PlayerData or not PlayerData.items then return false end
         
         for _, item in pairs(PlayerData.items) do
-            if item.name == itemName and item.amount > 0 then
+            if item and item.name == itemName and (item.amount or 0) > 0 then
                 return true
             end
         end
@@ -263,7 +263,7 @@ function PlayerHasItem(itemName)
         if not inventory then return false end
         
         for _, item in pairs(inventory) do
-            if item.name == itemName and item.count > 0 then
+            if item and item.name == itemName and (item.count or 0) > 0 then
                 return true
             end
         end
