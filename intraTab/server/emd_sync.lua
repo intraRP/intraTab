@@ -37,7 +37,7 @@ local function BuildURL(basePath)
 end
 
 -- Generiere PHPEndpoint einmalig beim Start
-local PHPEndpoint = BuildURL("api/emd-sync.php")
+local PHPEndpoint = BuildURL("api/emd/sync.php")
 
 if Config.Debug then
     print("^2[EMD-Sync]^7 PHPEndpoint generiert: " .. (PHPEndpoint or "FEHLER"))

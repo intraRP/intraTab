@@ -80,7 +80,7 @@ local function BuildURL(basePath)
 end
 
 -- Generiere API-Endpunkt für eNOTF-Abrechnung
-local BillingEndpoint = BuildURL("api/enotf-billing.php")
+local BillingEndpoint = BuildURL("api/enotf/billing.php")
 
 if Config.Debug then
     print("^2[eNOTF-Billing]^7 BillingEndpoint generiert: " .. (BillingEndpoint or "FEHLER"))
