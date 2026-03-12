@@ -457,7 +457,8 @@ local function CollectDispatchData(tick)
                 caller_phonenumber = dispatchJson.caller_phonenumber or "",
                 caller_name = dispatchJson.caller_name or "",
                 location_x = dispatchJson.location_x or 0,
-                location_y = dispatchJson.location_y or 0
+                location_y = dispatchJson.location_y or 0,
+                bluelight = dispatchJson.bluelight or "no"
             }
             -- Patientendaten
             if dispatchJson.patienten and dispatchJson.patienten ~= "" then
