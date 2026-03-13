@@ -170,6 +170,29 @@ window.addEventListener("message", function (event) {
   }
 });
 
+// ==========================================
+// SESSION IDENTIFICATION (postMessage from PHP iframe)
+// ==========================================
+
+// Listen for postMessage from the PHP iframe (_head.php sends session_id)
+window.addEventListener("message", function (event) {
+  const data = event.data;
+  if (!data || !data.type) return;
+
+  if (data.type === "intraRP_session" && data.session_id) {
+    if (DEBUG) console.log("[Master] Received PHP session_id via postMessage:", data.session_id);
+
+    // Forward session_id to FiveM client via NUI callback
+    fetch(`https://${GetParentResourceName()}/sessionIdentify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: data.session_id }),
+    }).catch((err) => {
+      if (DEBUG) console.log("[Master] sessionIdentify fetch error:", err);
+    });
+  }
+});
+
 // Note: ESC handling is managed in client Lua to prevent unintended
 // auto-close events from the DOM. NUI will only close via explicit
 // messages or UI controls.

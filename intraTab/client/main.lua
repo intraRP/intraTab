@@ -445,6 +445,28 @@ RegisterNUICallback('getCharacterData', function(data, cb)
     end
 end)
 
+-- Session Identify: PHP iframe sends session_id via postMessage -> master.js -> here
+RegisterNUICallback('sessionIdentify', function(data, cb)
+    if data and data.session_id then
+        if Config.Debug then
+            print("^2[intraTab]^7 Received PHP session_id: " .. data.session_id)
+        end
+
+        local charData = GetPlayerCharacterData()
+        if charData then
+            TriggerServerEvent('intraTab:identifyCharacter', data.session_id, charData)
+            cb({ success = true })
+        else
+            if Config.Debug then
+                print("^1[intraTab]^7 No character data available for session identify")
+            end
+            cb({ success = false, error = "No character data" })
+        end
+    else
+        cb({ success = false, error = "No session_id" })
+    end
+end)
+
 RegisterNUICallback('closeTablet', function(data, cb)
     if Config.Debug then
         print("NUI requested to close tablet, data:", json.encode(data or {}))
