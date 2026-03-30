@@ -575,6 +575,44 @@ local function CollectLagemeldungen(tick)
 end
 
 -- ========================================
+-- VEHICLE REGISTRY (on-demand, triggered by PHP response)
+-- ========================================
+
+local function SendVehicleRegistry()
+    local result = ExecuteQuery("SELECT id, department, value, valuelong, job, grade, image, type, locked, funkkanal FROM emd_vehicles", {})
+
+    if not result or #result == 0 then
+        if Config.Debug then
+            print("^3[VehicleRegistry]^7 Keine Fahrzeuge in emd_vehicles gefunden")
+        end
+        return
+    end
+
+    if Config.Debug then
+        print("^2[VehicleRegistry]^7 " .. #result .. " Fahrzeuge geladen, sende an PHP...")
+    end
+
+    local payload = {
+        intraRP_API_Key = Config.APIKey,
+        timestamp = os.time(),
+        vehicle_registry = result
+    }
+
+    PerformHttpRequest(PHPEndpoint, function(statusCode, response, headers)
+        if Config.Debug then
+            if statusCode == 200 then
+                print("^2[VehicleRegistry]^7 Fahrzeugregister erfolgreich gesendet")
+            else
+                print("^1[VehicleRegistry]^7 Fehler beim Senden: " .. tostring(statusCode) .. " " .. tostring(response))
+            end
+        end
+    end, 'POST', json.encode(payload), {
+        ['Content-Type'] = 'application/json',
+        ['User-Agent'] = 'FiveM-Heartbeat/2.0'
+    })
+end
+
+-- ========================================
 -- HEARTBEAT CORE
 -- ========================================
 
@@ -689,6 +727,14 @@ local function HandleHeartbeatResponse(statusCode, response)
     -- Patientendaten aus Response verarbeiten (PHP -> emergencydispatch)
     if responseData.patient_updates then
         ProcessPatientData(responseData)
+    end
+
+    -- Vehicle Registry senden wenn angefordert
+    if responseData.request_vehicle_registry then
+        if Config.Debug then
+            print("^2[Heartbeat]^7 PHP fordert Fahrzeugregister an - sende...")
+        end
+        SendVehicleRegistry()
     end
 
     -- Status-ACK verarbeiten (lastStatusId aktualisieren)
